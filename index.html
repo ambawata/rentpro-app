@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rentpro Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <style>
+        /* --- CSS Code --- */
+        :root {
+            --sidebar-expanded-width: 250px;
+            --sidebar-collapsed-width: 70px;
+        }
+        body {
+            overflow-x: hidden;
+            background-color: #f8f9fa;
+        }
+        #wrapper { display: flex; }
+        #sidebar-wrapper {
+            width: var(--sidebar-collapsed-width);
+            min-height: 100vh;
+            background-color: #212529;
+            transition: width 0.3s ease;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+        }
+        #page-content-wrapper {
+            flex-grow: 1;
+            padding-left: var(--sidebar-collapsed-width);
+            transition: padding-left 0.3s ease;
+        }
+        #wrapper.expanded #sidebar-wrapper { width: var(--sidebar-expanded-width); }
+        #wrapper.expanded #page-content-wrapper { padding-left: var(--sidebar-expanded-width); }
+        #sidebar-wrapper .sidebar-text,
+        #sidebar-wrapper .sidebar-heading b {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.2s linear;
+        }
+        #wrapper.expanded #sidebar-wrapper .sidebar-text,
+        #wrapper.expanded #sidebar-wrapper .sidebar-heading b {
+            display: inline-block;
+            opacity: 1;
+        }
+        #sidebar-wrapper .list-group-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        #wrapper.expanded #sidebar-wrapper .list-group-item { justify-content: flex-start; }
+        #sidebar-wrapper .list-group-item i {
+            font-size: 1.5rem;
+            width: 24px;
+            text-align: center;
+            transition: margin-right 0.3s ease;
+        }
+        #wrapper.expanded #sidebar-wrapper .list-group-item i { margin-right: 1rem; }
+        .list-group-item.active {
+            background-color: #0d6efd !important;
+            border-color: #0d6efd !important;
+        }
+        .content-section { animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .card {
+            border: none;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        .table-responsive { max-height: 70vh; }
+        .table td { vertical-align: middle; }
+    </style>
+</head>
+<body>
+
+    <div id="wrapper">
+        <div id="sidebar-wrapper">
+            <div class="sidebar-heading text-white p-3 d-flex justify-content-center align-items-center">
+                <b><span class="sidebar-text">Rentpro</span></b>
+            </div>
+            <div class="list-group list-group-flush">
+                <a href="#" class="list-group-item list-group-item-action bg-dark text-white active" data-section="dashboard-section"><i class="bi bi-speedometer2"></i> <span class="sidebar-text">Dashboard</span></a>
+                <a href="#" class="list-group-item list-group-item-action bg-dark text-white" data-section="properties-section"><i class="bi bi-building"></i> <span class="sidebar-text">Properties</span></a>
+                <a href="#" class="list-group-item list-group-item-action bg-dark text-white" data-section="unpaid-section"><i class="bi bi-exclamation-triangle"></i> <span class="sidebar-text">Unpaid</span></a>
+                <a href="#" class="list-group-item list-group-item-action bg-dark text-white" data-section="transactions-section"><i class="bi bi-receipt"></i> <span class="sidebar-text">Transactions</span></a>
+                <a href="#" class="list-group-item list-group-item-action bg-dark text-white" data-section="expenses-section"><i class="bi bi-wallet2"></i> <span class="sidebar-text">Expenses</span></a>
+                <a href="#" class="list-group-item list-group-item-action bg-dark text-white" data-section="import-section"><i class="bi bi-cloud-upload"></i> <span class="sidebar-text">Import</span></a>
+                <a href="#" class="list-group-item list-group-item-action bg-dark text-white" data-section="export-section"><i class="bi bi-cloud-download"></i> <span class="sidebar-text">Export</span></a>
+            </div>
+        </div>
+
+        <div id="page-content-wrapper">
+            <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom sticky-top">
+                <div class="container-fluid">
+                    <button class="btn btn-primary" id="menu-toggle"><i class="bi bi-list"></i></button>
+                    <div class="ms-auto d-flex align-items-center">
+                         <b class="me-2 d-none d-sm-block">Month:</b>
+                        <select class="form-select" id="month-filter"></select>
+                    </div>
+                </div>
+            </nav>
+            <div class="container-fluid p-3">
+                <main id="dashboard-section" class="content-section"></main>
+                <main id="properties-section" class="content-section" style="display:none;"></main>
+                <main id="unpaid-section" class="content-section" style="display:none;"></main>
+                <main id="transactions-section" class="content-section" style="display:none;"></main>
+                <main id="expenses-section" class="content-section" style="display:none;"></main>
+                <main id="import-section" class="content-section" style="display:none;"></main>
+                <main id="export-section" class="content-section" style="display:none;"></main>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="addTransactionModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">Add/Edit Transaction</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <form id="transaction-form">
+                        <div class="mb-3"><label class="form-label">Tenancy ID*</label><input type="text" class="form-control" id="t-form-tenancy-id" required></div>
+                        <div class="row">
+                            <div class="col-6 mb-3"><label>Tenant:</label><input type="text" class="form-control" id="t-form-tenant-name" disabled></div>
+                            <div class="col-6 mb-3"><label>Rent:</label><input type="text" class="form-control" id="t-form-monthly-rent" disabled></div>
+                        </div>
+                        <div class="mb-3"><label class="form-label">Amount Paid*</label><input type="number" class="form-control" id="t-form-amount-paid" required placeholder="Enter amount"></div>
+                    </form>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" id="save-transaction-btn">Save</button></div>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="addExpenseModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="modal-title">Add New Expense</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <form id="expense-form">
+                        <div class="mb-3"><label class="form-label">Category</label>
+                            <select class="form-select" id="e-form-category" required><option value="">Select Category</option><option>Parkash Salary</option><option>Parkash Labor</option><option>Pawan Cleaning Staff</option><option>Ritik</option><option>Ravinder Sube</option><option>Electricity Bill</option><option>Advertising/Social Media</option><option value="Custom">Custom</option></select>
+                            <input type="text" class="form-control mt-2" id="e-form-custom-category" placeholder="Enter Custom Category" style="display:none;">
+                        </div>
+                        <div class="mb-3"><label class="form-label">Amount</label><input type="number" class="form-control" id="e-form-amount" required placeholder="Enter amount"></div>
+                        <div class="mb-3"><label class="form-label">Date</label><input type="date" class="form-control" id="e-form-date" required></div>
+                    </form>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-success" id="save-expense-btn">Save</button></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        const initialMasterData = `Tenancy ID,Block,Shop No,Tenant Name,Monthly Rent\nA-0,A,0,Xyz,15000\nA-1,A,1,Vinod Kumar,40000\nA-2,A,2,Mausam,10000\nB-73,B,73,Vikram Singh,10000\nB-74,B,74,Nisha,8000\nC-1,C,1,Rohit Sharma,20000\nC-2,C,2,Bobby,7000\nB-78,B,78,,\nB-80,B,80,,`;
+        const initialMonthlyData = { "2025-07": `Tenancy ID,PaymentDate,Amount Paid\nA-0,2025-07-20,15000\nA-1,2025-07-20,20000\nA-2,2025-07-20,10000\nB-73,2025-07-20,0\nB-74,2025-07-20,8000\nC-1,2025-07-20,20000` };
+        
+        let masterData = [], monthlyTransactions = {}, expenses = {};
+        const menuToggle = document.getElementById('menu-toggle'), wrapper = document.getElementById('wrapper'), sidebarLinks = document.querySelectorAll('#sidebar-wrapper .list-group-item'), monthFilter = document.getElementById('month-filter');
+        const transactionModal = new bootstrap.Modal(document.getElementById('addTransactionModal')), expenseModal = new bootstrap.Modal(document.getElementById('addExpenseModal'));
+
+        // --- TEMPLATES --- (UPDATED transactions template)
+        const templates = {
+            dashboard: `<div class="row g-2">...</div>`,
+            properties: `<h2>Properties List</h2><div class="card"><div class="card-body">...</div></div>`,
+            unpaid: `<h2>Unpaid & Partial</h2><div class="card"><div class="card-body">...</div></div>`,
+            transactions: `<div class="d-flex justify-content-between align-items-center mb-3"><h2>Transactions</h2><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTransactionModal"><i class="bi bi-plus-circle"></i></button></div>
+                           <div class="table-responsive"><table class="table"><tbody id="transactions-log-body"></tbody></table></div>`,
+            expenses: `<div class="d-flex justify-content-between align-items-center mb-3"><h2>Expenses</h2>...</div>`,
+            import: `<h2>Import Data</h2><div class="row g-3">...</div>`,
+            export: `<h2>Export Data</h2><p>Download your data in CSV format.</p>...`
+        };
+        templates.dashboard = `<div class="row g-2"><div class="col-6"><div class="card text-white bg-primary h-100"><div class="card-body p-2"><h6 class="card-title small">Collected</h6><p class="card-text fs-6 fw-bold" id="total-collected">₹0</p></div></div></div><div class="col-6"><div class="card text-white bg-warning h-100"><div class="card-body p-2"><h6 class="card-title small">Outstanding</h6><p class="card-text fs-6 fw-bold" id="outstanding-balance">₹0</p></div></div></div><div class="col-6"><div class="card text-white bg-success h-100"><div class="card-body p-2"><h6 class="card-title small">Paid Shops</h6><p class="card-text fs-6 fw-bold" id="shops-paid">0</p></div></div></div><div class="col-6"><div class="card text-white bg-danger h-100"><div class="card-body p-2"><h6 class="card-title small">Unpaid Shops</h6><p class="card-text fs-6 fw-bold" id="shops-unpaid">0</p></div></div></div><div class="col-6"><div class="card text-dark bg-light h-100"><div class="card-body p-2"><h6 class="card-title small">Vacant Shops</h6><p class="card-text fs-6 fw-bold" id="shops-vacant">0</p></div></div></div><div class="col-6"><div class="card text-white bg-secondary h-100"><div class="card-body p-2"><h6 class="card-title small">Expenses</h6><p class="card-text fs-6 fw-bold" id="total-expenses">₹0</p></div></div></div><div class="col-6"><div class="card text-white bg-info h-100"><div class="card-body p-2"><h6 class="card-title small">Net Profit</h6><p class="card-text fs-6 fw-bold" id="net-profit">₹0</p></div></div></div><div class="col-6"><div class="card text-white bg-dark h-100"><div class="card-body p-2"><h6 class="card-title small">Expected Rent</h6><p class="card-text fs-6 fw-bold" id="total-expected">₹0</p></div></div></div></div>`;
+        templates.properties = `<h2>Properties List</h2><div class="card"><div class="card-body"><div class="row g-2 mb-3"><div class="col-md-4"><select id="prop-status-filter" class="form-select"><option value="All">All Status</option><option>Paid</option><option>Partial</option><option>Unpaid</option><option>Vacant</option></select></div><div class="col-md-8"><input type="text" id="prop-search" class="form-control" placeholder="Search by Name or ID..."></div></div><div class="table-responsive"><table class="table"><tbody id="properties-table-body"></tbody></table></div></div></div>`;
+        templates.unpaid = `<h2>Unpaid & Partial</h2><div class="card"><div class="card-body"><div class="row g-2 mb-3"><div class="col-md-4"><select id="unpaid-status-filter" class="form-select"><option value="All">All</option><option>Unpaid</option><option>Partial</option></select></div><div class="col-md-8"><input type="text" id="unpaid-search" class="form-control" placeholder="Search..."></div></div><div class="table-responsive"><table class="table"><thead><tr><th>Tenant</th><th>Balance</th></tr></thead><tbody id="unpaid-table-body"></tbody></table></div></div></div>`;
+        templates.expenses = `<div class="d-flex justify-content-between align-items-center mb-3"><h2>Expenses</h2><button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addExpenseModal"><i class="bi bi-plus-circle"></i></button></div><div class="card"><div class="card-body"><div class="table-responsive"><table class="table"><thead><tr><th>Date</th><th>Category</th><th>Amount</th></tr></thead><tbody id="expenses-log-body"></tbody></table></div></div></div>`;
+        templates.import = `<h2>Import Data</h2><div class="row g-3"><div class="col-12"><div class="card"><div class="card-header"><b>Master Data</b></div><div class="card-body"><p class="small">Upload master CSV. This will overwrite all records.</p><input type="file" class="form-control" id="master-file-input" accept=".csv"><button class="btn btn-primary mt-2 w-100" id="upload-master-btn">Upload</button></div></div></div><div class="col-12"><div class="card"><div class="card-header"><b>Monthly Data</b></div><div class="card-body"><p class="small">Upload transaction CSV for a month.</p><label>Month:</label><select class="form-select mb-2" id="import-month-select"></select><input type="file" class="form-control" id="monthly-file-input" accept=".csv"><button class="btn btn-primary mt-2 w-100" id="upload-monthly-btn">Upload</button></div></div></div></div>`;
+        templates.export = `<h2>Export Data</h2><p>Download your data in CSV format.</p><div class="d-grid gap-2 col-10 mx-auto"><button class="btn btn-lg btn-success" id="export-master-btn"><i class="bi bi-download me-2"></i>Export Master</button><button class="btn btn-lg btn-info" id="export-monthly-btn"><i class="bi bi-download me-2"></i>Export Month</button></div>`;
+        
+        // --- EVENT LISTENERS ---
+        menuToggle.addEventListener('click', () => wrapper.classList.toggle('expanded'));
+        sidebarLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const sectionId = link.getAttribute('data-section');
+                sidebarLinks.forEach(s => s.classList.remove('active'));
+                link.classList.add('active');
+                document.querySelectorAll('.content-section').forEach(section => { section.style.display = section.id === sectionId ? 'block' : 'none'; });
+                if (window.innerWidth < 768 && wrapper.classList.contains('expanded')) { wrapper.classList.remove('expanded'); }
+            });
+        });
+        monthFilter.addEventListener('change', renderAllComponents);
+
+        // --- INITIALIZATION ---
+        function initializeApp() {
+            masterData = JSON.parse(localStorage.getItem('masterData')) || Papa.parse(initialMasterData, { header: true, skipEmptyLines: true }).data;
+            monthlyTransactions = JSON.parse(localStorage.getItem('monthlyTransactions')) || initialMonthlyData;
+            expenses = JSON.parse(localStorage.getItem('expenses')) || {};
+            for (const section in templates) { document.getElementById(`${section}-section`).innerHTML = templates[section]; }
+            bindDynamicEventListeners();
+            populateMonthFilters();
+            renderAllComponents();
+        }
+
+        function bindDynamicEventListeners() {
+            document.getElementById('prop-search')?.addEventListener('input', renderAllComponents);
+            document.getElementById('prop-status-filter')?.addEventListener('change', renderAllComponents);
+            document.getElementById('unpaid-search')?.addEventListener('input', renderAllComponents);
+            document.getElementById('unpaid-status-filter')?.addEventListener('change', renderAllComponents);
+            document.getElementById('save-transaction-btn')?.addEventListener('click', saveTransaction);
+            document.getElementById('t-form-tenancy-id')?.addEventListener('input', autofillTransactionForm);
+            document.getElementById('save-expense-btn')?.addEventListener('click', saveExpense);
+            document.getElementById('e-form-category')?.addEventListener('change', () => { document.getElementById('e-form-custom-category').style.display = document.getElementById('e-form-category').value === 'Custom' ? 'block' : 'none'; });
+            document.getElementById('upload-master-btn')?.addEventListener('click', importMasterData);
+            document.getElementById('upload-monthly-btn')?.addEventListener('click', importMonthlyData);
+            document.getElementById('export-master-btn')?.addEventListener('click', exportMasterData);
+            document.getElementById('export-monthly-btn')?.addEventListener('click', exportMonthlyData);
+        }
+
+        function populateMonthFilters() {
+            const allMonths = new Set(Object.keys(monthlyTransactions));
+            const d = new Date();
+            for(let i = 12; i > 0; i--) { allMonths.add(`${new Date(d.getFullYear(), d.getMonth() - i, 1).getFullYear()}-${String(new Date(d.getFullYear(), d.getMonth() - i, 1).getMonth() + 1).padStart(2, '0')}`); }
+            for(let i = 0; i < 6; i++) { allMonths.add(`${new Date(d.getFullYear(), d.getMonth() + i, 1).getFullYear()}-${String(new Date(d.getFullYear(), d.getMonth() + i, 1).getMonth() + 1).padStart(2, '0')}`); }
+            const sortedMonths = Array.from(allMonths).sort().reverse();
+            monthFilter.innerHTML = '';
+            document.getElementById('import-month-select').innerHTML = '';
+            sortedMonths.forEach(month => {
+                const option = new Option(month, month);
+                monthFilter.add(option.cloneNode(true));
+                document.getElementById('import-month-select').add(option.cloneNode(true));
+            });
+            const currentMonthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+            if (Array.from(allMonths).includes(currentMonthKey)) { monthFilter.value = currentMonthKey; } 
+            else if (sortedMonths.length > 0) { monthFilter.value = sortedMonths[0]; }
+        }
+
+        const getCombinedData = (month) => {
+            const monthTransMap = new Map((monthlyTransactions[month] || []).map(t => [t['Tenancy ID'], parseFloat(t['Amount Paid']) || 0]));
+            return masterData.map(shop => {
+                const rent = parseFloat(shop['Monthly Rent']) || 0, paid = monthTransMap.get(shop['Tenancy ID']) || 0, isVacant = !shop['Tenant Name']?.trim();
+                let status = isVacant ? 'Vacant' : (rent > 0 && paid >= rent ? 'Paid' : (paid > 0 ? 'Partial' : 'Unpaid'));
+                return { ...shop, 'Amount Paid': paid, 'Balance': rent - paid, Status: status };
+            });
+        };
+
+        // --- RENDERING ---
+        function renderAllComponents() {
+            const month = monthFilter.value;
+            if (!month) return;
+            const data = getCombinedData(month);
+            renderDashboard(data, month);
+            const { filteredProperties, filteredUnpaid } = applyFilters(data);
+
+            // Properties List Rendering
+            let propHtml = filteredProperties.map(d => `
+                <tr class="bg-white">
+                    <td class="p-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold fs-6">${d['Tenant Name'] || 'Vacant Shop'}</span>
+                            <span class="badge bg-${getStatusColor(d.Status)} rounded-pill">${d.Status}</span>
+                        </div>
+                        <div class="d-flex justify-content-between text-muted small mt-1">
+                            <span>Rent: ${formatCurrency(d['Monthly Rent'])}</span>
+                            <span class="fw-bold text-${d.Balance > 0 ? 'danger' : 'success'}">Balance: ${formatCurrency(d.Balance)}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center small mt-2">
+                            <span class="text-muted font-monospace">${d['Tenancy ID']}</span>
+                            <span class="text-muted">Paid: ${formatCurrency(d['Amount Paid'])}</span>
+                            <button class="btn btn-sm btn-primary py-0 px-2" onclick="editTransaction('${d['Tenancy ID']}')">Edit</button>
+                        </div>
+                    </td>
+                </tr>`).join('');
+            document.getElementById('properties-table-body').innerHTML = `<div class="list-group">${propHtml}</div>` || '<tr><td class="text-center">No properties match.</td></tr>';
+
+            // Unpaid Table
+            let unpaidHtml = filteredUnpaid.map(d => `<tr><td><div class="fw-bold">${d['Tenant Name']}</div><small class="text-muted">${d['Tenancy ID']}</small></td><td><span class="text-danger fw-bold">${formatCurrency(d.Balance)}</span></td></tr>`).join('');
+            document.getElementById('unpaid-table-body').innerHTML = unpaidHtml || '<tr><td colspan="2" class="text-center">No unpaid tenants.</td></tr>';
+            
+            renderLogs(month);
+        }
+
+        function renderDashboard(data, month) {
+            const nonVacant = data.filter(d => d.Status !== 'Vacant');
+            const totalCollected = nonVacant.reduce((sum, d) => sum + d['Amount Paid'], 0);
+            const totalExpected = nonVacant.reduce((sum, d) => sum + (parseFloat(d['Monthly Rent']) || 0), 0);
+            const totalExpenses = (expenses[month] || []).reduce((sum, e) => sum + (parseFloat(e.Amount) || 0), 0);
+            document.getElementById('total-collected').textContent = formatCurrency(totalCollected);
+            document.getElementById('outstanding-balance').textContent = formatCurrency(totalExpected - totalCollected);
+            document.getElementById('shops-paid').textContent = data.filter(d => d.Status === 'Paid').length;
+            document.getElementById('shops-unpaid').textContent = data.filter(d => d.Status === 'Unpaid').length;
+            document.getElementById('shops-vacant').textContent = data.filter(d => d.Status === 'Vacant').length;
+            document.getElementById('total-expenses').textContent = formatCurrency(totalExpenses);
+            document.getElementById('net-profit').textContent = formatCurrency(totalCollected - totalExpenses);
+            document.getElementById('total-expected').textContent = formatCurrency(totalExpected);
+        }
+
+        function renderLogs(month) {
+            // *** NEW: Updated Transaction Log Rendering Logic ***
+            const transLog = (monthlyTransactions[month] || []).map(t => ({...t, tenant: masterData.find(m => m['Tenancy ID'] === t['Tenancy ID'])?.['Tenant Name'] || 'N/A' })).sort((a,b) => new Date(b.PaymentDate) - new Date(a.PaymentDate));
+            let transHtml = transLog.map(t => `
+                <tr class="bg-white">
+                    <td class="p-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold text-success">${formatCurrency(t['Amount Paid'])}</span>
+                            <span class="small text-muted">${t.PaymentDate || 'No Date'}</span>
+                        </div>
+                        <div class="d-flex justify-content-between text-muted small mt-1">
+                            <span>${t.tenant}</span>
+                            <span class="font-monospace">${t['Tenancy ID']}</span>
+                        </div>
+                    </td>
+                </tr>`).join('');
+            document.getElementById('transactions-log-body').innerHTML = `<div class="list-group">${transHtml}</div>` || '<tr><td class="text-center">No transactions this month.</td></tr>';
+
+            const expLog = (expenses[month] || []).sort((a,b) => new Date(b.Date) - new Date(a.Date));
+            document.getElementById('expenses-log-body').innerHTML = expLog.map(e => `<tr><td>${e.Date}</td><td>${e.Category}</td><td>${formatCurrency(e.Amount)}</td></tr>`).join('');
+        }
+
+        // --- FILTERING ---
+        function applyFilters(data) {
+            const propSearch = document.getElementById('prop-search').value.toLowerCase();
+            const propStatus = document.getElementById('prop-status-filter').value;
+            const filteredProperties = data.filter(d => (propStatus === 'All' || d.Status === propStatus) && (d['Tenant Name']?.toLowerCase().includes(propSearch) || d['Tenancy ID']?.toLowerCase().includes(propSearch)));
+            const unpaidSearch = document.getElementById('unpaid-search').value.toLowerCase();
+            const unpaidStatus = document.getElementById('unpaid-status-filter').value;
+            const filteredUnpaid = data.filter(d => (unpaidStatus === 'All' ? (d.Status === 'Unpaid' || d.Status === 'Partial') : d.Status === unpaidStatus) && (d['Tenant Name']?.toLowerCase().includes(unpaidSearch) || d['Tenancy ID']?.toLowerCase().includes(unpaidSearch)));
+            return { filteredProperties, filteredUnpaid };
+        }
+
+        // --- ACTIONS ---
+        window.editTransaction = tenancyId => {
+            const data = getCombinedData(monthFilter.value).find(d => d['Tenancy ID'] === tenancyId);
+            if(data) {
+                document.getElementById('t-form-tenancy-id').value = data['Tenancy ID'];
+                autofillTransactionForm();
+                document.getElementById('t-form-amount-paid').value = data['Amount Paid'] > 0 ? data['Amount Paid'] : '';
+                transactionModal.show();
+            }
+        };
+        const autofillTransactionForm = () => {
+            const tenant = masterData.find(t => t['Tenancy ID'] === document.getElementById('t-form-tenancy-id').value);
+            document.getElementById('t-form-tenant-name').value = tenant ? tenant['Tenant Name'] : '';
+            document.getElementById('t-form-monthly-rent').value = tenant ? formatCurrency(tenant['Monthly Rent']) : '';
+        };
+        const saveTransaction = () => {
+            const id = document.getElementById('t-form-tenancy-id').value, amount = document.getElementById('t-form-amount-paid').value, month = monthFilter.value;
+            if (!id || !amount || !month) return alert('Please fill all fields.');
+            if (!monthlyTransactions[month]) monthlyTransactions[month] = [];
+            let existing = monthlyTransactions[month].find(t => t['Tenancy ID'] === id);
+            if (existing) { existing['Amount Paid'] = amount; existing.PaymentDate = new Date().toISOString().split('T')[0]; } 
+            else { monthlyTransactions[month].push({'Tenancy ID': id, PaymentDate: new Date().toISOString().split('T')[0], 'Amount Paid': amount }); }
+            saveAndRerender('Transaction saved!');
+            transactionModal.hide();
+            document.getElementById('transaction-form').reset();
+        };
+        const saveExpense = () => {
+            const catSelect = document.getElementById('e-form-category');
+            const category = catSelect.value === 'Custom' ? document.getElementById('e-form-custom-category').value : catSelect.value;
+            const amount = document.getElementById('e-form-amount').value;
+            let date = document.getElementById('e-form-date').value;
+            if (!category || !amount || !date) return alert('Please fill all fields.');
+            const month = date.substring(0, 7);
+            if (!expenses[month]) expenses[month] = [];
+            expenses[month].push({ Category: category, Amount: amount, Date: date });
+            saveAndRerender('Expense saved!');
+            expenseModal.hide();
+            document.getElementById('expense-form').reset();
+        };
+
+        // --- IMPORT/EXPORT & HELPERS ---
+        const importMasterData = () => { const file = document.getElementById('master-file-input').files[0]; if(!file) return alert('Please select a file.'); Papa.parse(file, { header: true, skipEmptyLines: true, complete: res => { masterData = res.data; monthlyTransactions = {}; saveAndRerender('Master data uploaded successfully!', true); }}); };
+        const importMonthlyData = () => { const file = document.getElementById('monthly-file-input').files[0]; const month = document.getElementById('import-month-select').value; if(!file || !month) return alert('Please select file and month.'); Papa.parse(file, { header: true, skipEmptyLines: true, complete: res => { monthlyTransactions[month] = res.data; saveAndRerender(`Transactions for ${month} uploaded.`); }}); };
+        const exportMasterData = () => downloadCSV(Papa.unparse(masterData), 'master_data.csv');
+        const exportMonthlyData = () => downloadCSV(Papa.unparse(getCombinedData(monthFilter.value)), `monthly_data_${monthFilter.value}.csv`);
+        const downloadCSV = (csv, filename) => { const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); link.setAttribute('download', filename); link.click(); };
+        const saveAndRerender = (alertMsg, reload = false) => { localStorage.setItem('masterData', JSON.stringify(masterData)); localStorage.setItem('monthlyTransactions', JSON.stringify(monthlyTransactions)); localStorage.setItem('expenses', JSON.stringify(expenses)); alert(alertMsg); if(reload) location.reload(); else renderAllComponents(); };
+        const getStatusColor = (status) => ({ 'Paid': 'success', 'Unpaid': 'danger', 'Partial': 'warning', 'Vacant': 'secondary' }[status] || 'light');
+        const formatCurrency = (num) => `₹${(parseFloat(num) || 0).toLocaleString('en-IN')}`;
+
+        initializeApp();
+    });
+    </script>
+</body>
+</html>
